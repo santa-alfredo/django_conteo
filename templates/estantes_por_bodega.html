@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Estantes de {{ bodega.nombre }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-4">
+        <h2>Estantes de {{ bodega.nombre }}</h2>
+        <a href="{% url 'home' %}" class="btn btn-secondary mb-3">Volver al Dashboard</a>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert {% if message.tags == 'success' %}alert-success{% else %}alert-danger{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% if ciclo_activo %}
+            <p>Ciclo Activo: {{ ciclo_activo.nombre }} ({{ ciclo_activo.estado }})</p>
+        {% else %}
+            <p class="text-warning">No hay un ciclo activo para esta bodega.</p>
+        {% endif %}
+
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Estante</th>
+                    <th>Empleados Asignados</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for estante in estantes %}
+                <tr>
+                    <td>{{ estante.nombre }}</td>
+                    <td>
+                        {% for asignacion in asignaciones %}
+                            {% if asignacion.id_estante == estante %}
+                                {{ asignacion.id_empleado }} ({{ asignacion.estado }})<br>
+                            {% endif %}
+                        {% empty %}
+                            Sin empleados asignados
+                        {% endfor %}
+                    </td>
+                    <td>
+                        <form method="post" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="estante_id" value="{{ estante.id_estante }}">
+                            <select name="empleado_id" class="form-select d-inline" style="width: 200px;">
+                                <option value="">Seleccionar Empleado</option>
+                                {% for empleado in empleados %}
+                                    <option value="{{ empleado.id_empleado }}">{{ empleado.nombre }} {{ empleado.apellido }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn btn-primary btn-sm">Agregar</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3">No hay estantes en esta bodega</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

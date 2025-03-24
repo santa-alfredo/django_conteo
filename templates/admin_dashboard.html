@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Administrador</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+    <div class="container mx-auto px-4 py-6">
+        <!-- Encabezado -->
+        <div class="flex flex-col sm:flex-row justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">Bienvenido, Administrador</h2>
+            <a href="{% url 'logout' %}" class="mt-4 sm:mt-0 bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition">Cerrar Sesión</a>
+        </div>
+
+        <!-- Sección de Ciclo -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h3 class="text-xl font-semibold text-gray-700 mb-4">Gestionar Ciclo de Conteo</h3>
+            <form method="post" action="" class="mb-4">
+                {% csrf_token %}
+                <button type="submit" class="bg-[rgb(34,197,94)] text-white px-4 py-2 rounded-md hover:bg-[rgb(16,185,129)] transition">
+                    Iniciar Nuevo Ciclo
+                  </button>
+                  
+            </form>
+            {% if ciclo_actual %}
+                <p class="text-gray-600">Ciclo Actual: {{ ciclo_actual.nombre }} (Estado: {{ ciclo_actual.estado }})</p>
+            {% else %}
+                <p class="text-gray-600">No hay ciclo activo</p>
+            {% endif %}
+        </div>
+
+        <!-- Sección de Asignaciones -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h3 class="text-xl font-semibold text-gray-700 mb-4">Gestionar Asignaciones</h3>
+            <a href="" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition mb-4 inline-block">Crear Nueva Asignación</a>
+            <div class="table-container">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-gray-800 text-white">
+                        <tr>
+                            <th class="p-3 text-sm font-medium">Estante</th>
+                            <th class="p-3 text-sm font-medium">Empleado</th>
+                            <th class="p-3 text-sm font-medium">Ciclo</th>
+                            <th class="p-3 text-sm font-medium">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white">
+                        {% for asignacion in asignaciones %}
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="p-3 text-sm text-gray-700">{{ asignacion.id_estante.nombre }}</td>
+                            <td class="p-3 text-sm text-gray-700">{{ asignacion.id_empleado }}</td>
+                            <td class="p-3 text-sm text-gray-700">{{ asignacion.id_ciclo.nombre }}</td>
+                            <td class="p-3 text-sm text-gray-700">{{ asignacion.estado }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="p-3 text-center text-gray-600">No hay asignaciones</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Sección de Consolidado por Bodega -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-xl font-semibold text-gray-700 mb-4">Consolidado e Inconsistencias</h3>
+            <select id="bodegaSelect" onchange="cargarConsolidado(this.value)" class="w-full sm:w-64 p-2 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Seleccionar Bodega</option>
+                {% for bodega in bodegas %}
+                <option value="{{ bodega.id_bodega }}">{{ bodega.nombre }}</option>
+                {% endfor %}
+            </select>
+
+            {% if ciclo_actual and ciclo_actual.estado == 'conteo_finalizado' %}
+            <form method="post" action="" class="mb-4">
+                {% csrf_token %}
+                <button type="submit" class="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 transition">Iniciar Reconteo</button>
+            </form>
+            {% endif %}
+
+            <div class="table-container">
+                <table class="w-full text-left border-collapse" id="consolidadoTable">
+                    <thead class="bg-gray-800 text-white">
+                        <tr>
+                            <th class="p-3 text-sm font-medium">Producto</th>
+                            <th class="p-3 text-sm font-medium">Cantidad Confirmada (Conteo)</th>
+                            <th class="p-3 text-sm font-medium">Diferencia (Conteo)</th>
+                            {% if ciclo_actual and ciclo_actual.estado == 'en_reconteo' or ciclo_actual.estado == 'reconteo_finalizado' %}
+                            <th class="p-3 text-sm font-medium">Cantidad Confirmada (Reconteo)</th>
+                            <th class="p-3 text-sm font-medium">Diferencia (Reconteo)</th>
+                            {% endif %}
+                            <th class="p-3 text-sm font-medium">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="consolidadoBody" class="bg-white">
+                        <!-- Contenido dinámico cargado por JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function cargarConsolidado(bodegaId) {
+            const tbody = document.getElementById('consolidadoBody');
+            if (!bodegaId) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-3 text-center text-gray-600">Seleccione una bodega</td></tr>';
+                return;
+            }
+
+            fetch(`/api/consolidado/${bodegaId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    tbody.innerHTML = '';
+                    if (data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" class="p-3 text-center text-gray-600">No hay datos para esta bodega</td></tr>';
+                    } else {
+                        data.forEach(item => {
+                            let row = `<tr class="border-b hover:bg-gray-50">
+                                <td class="p-3 text-sm text-gray-700">${item.producto}</td>
+                                <td class="p-3 text-sm text-gray-700">${item.cantidad_conteo}</td>
+                                <td class="p-3 text-sm text-gray-700">${item.diferencia_conteo}</td>`;
+                            if (item.cantidad_reconteo !== undefined) {
+                                row += `<td class="p-3 text-sm text-gray-700">${item.cantidad_reconteo}</td>
+                                        <td class="p-3 text-sm text-gray-700">${item.diferencia_reconteo}</td>`;
+                            }
+                            row += `<td class="p-3 text-sm text-gray-700">${item.estado}</td></tr>`;
+                            tbody.innerHTML += row;
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    tbody.innerHTML = '<tr><td colspan="6" class="p-3 text-center text-gray-600">Error al cargar datos</td></tr>';
+                });
+        }
+    </script>
+</body>
+</html>
