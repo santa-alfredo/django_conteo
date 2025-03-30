@@ -2,6 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from .models import Asignacion, Consolidado, Estante, Ciclo, InventarioInicial, Bodega, Empleado
 from django.contrib import messages
+from django.http import JsonResponse
+from django.db.models import RestrictedError
 
 # Create your views here.
 @login_required
@@ -28,6 +30,7 @@ def admin_dashboard(request):
         'consolidados': consolidados,
         'inconsistencias': inconsistencias,
     }
+
     return render(request, 'admin_dashboard.html', context)
 
 # Dashboard del Empleado
@@ -87,3 +90,100 @@ def estantes_por_bodega(request, id_bodega):
         'ciclo_activo': ciclo_activo,
     }
     return render(request, 'estantes_por_bodega.html', context)
+
+def estantes_bodegas(request):
+    bodega_id = request.GET.get('bodega_id')
+    estantes = Estante.objects.filter(id_bodega=bodega_id)
+    
+    estanterias = []
+    # y.id_empleado.nombre for y in Asignacion.objects.filter(id_estante=x)
+    for x in estantes:
+        estanterias.append({
+            "id": x.id_estante,
+            "code": x.nombre,
+            "status": "assigned",
+            "warehouse": x.descripcion,
+            "assignedEmployees": [y.id_empleado.nombre for y in Asignacion.objects.filter(id_estante=x)],
+            "productCount": "",
+            "lastUpdate": ""
+        })
+
+    return JsonResponse({'estanterias': estanterias})
+
+def empleados(request):
+    empleados = Empleado.objects.all()
+    data=[]
+    for x in empleados:
+        data.append({
+            "id": x.id_empleado,
+            "name": x.nombre,
+            "email": x.email
+        })
+
+    return JsonResponse({'empleados': data})
+
+import json
+def asignar_empleado(request):
+    try:
+        datos = json.loads(request.body)
+        empleadosId = datos['employeesId']  # Lista de IDs de empleados enviada desde el frontend
+        estanteId = datos['currentShelfId']
+        bodegaId = datos['bodegaId']
+
+        # Obtener las instancias necesarias
+        estante = Estante.objects.get(id_estante=estanteId)
+        ciclo = Ciclo.objects.get(id_bodega=bodegaId)
+
+        # Obtener las asignaciones existentes para este estante y ciclo
+        asignaciones_existentes = Asignacion.objects.filter(id_estante=estante, id_ciclo=ciclo)
+        empleados_asignados_actuales = set(asignaciones_existentes.values_list('id_empleado__id_empleado', flat=True))
+        
+        # Convertir los IDs de empleados_nuevos a enteros
+        empleados_nuevos = set(int(emp_id) for emp_id in empleadosId)
+
+        # Eliminar asignaciones de empleados que ya no están en la lista
+        empleados_a_eliminar = empleados_asignados_actuales - empleados_nuevos
+        if empleados_a_eliminar:
+            asignaciones_a_eliminar = Asignacion.objects.filter(
+                id_estante=estante,
+                id_ciclo=ciclo,
+                id_empleado__id_empleado__in=empleados_a_eliminar
+            )
+            asignaciones_a_eliminar.delete()
+
+        # Agregar asignaciones para empleados nuevos que no estaban previamente
+        empleados_a_agregar = empleados_nuevos - empleados_asignados_actuales
+        for empleadoId in empleados_a_agregar:
+            empleado = Empleado.objects.get(id_empleado=empleadoId)
+            Asignacion.objects.create(
+                id_estante=estante,
+                id_empleado=empleado,
+                id_ciclo=ciclo,
+                estado='Conteo'
+            )
+
+        # Obtener la lista actualizada de empleados asignados con IDs y nombres
+        asignaciones_actualizadas = Asignacion.objects.filter(id_estante=estante, id_ciclo=ciclo)
+        empleados_asignados = [
+            {'id': asignacion.id_empleado.id_empleado, 'name': asignacion.id_empleado.nombre}
+            for asignacion in asignaciones_actualizadas
+        ]
+
+        return JsonResponse({
+            'message': 'Asignaciones actualizadas exitosamente',
+            'eliminados': len(empleados_a_eliminar),
+            'agregados': len(empleados_a_agregar),
+            'empleados_asignados': empleados_asignados
+        })
+    except ValueError:
+        return JsonResponse({'message': 'Los IDs de empleados deben ser números enteros'}, status=400)
+    except Estante.DoesNotExist:
+        return JsonResponse({'message': 'El estante no existe'}, status=400)
+    except Ciclo.DoesNotExist:
+        return JsonResponse({'message': 'El ciclo no existe'}, status=400)
+    except Empleado.DoesNotExist:
+        return JsonResponse({'message': 'Uno o más empleados no existen'}, status=400)
+    except RestrictedError as e:
+        return JsonResponse({'message': "No se pueden eliminar las asignaciones de los siguientes empleados porque tienen reportes asociados"}, status=400)
+    except Exception as e:
+        return JsonResponse({'message': str(e)}, status=500)

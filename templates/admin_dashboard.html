@@ -3,144 +3,339 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Administrador</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Control de Inventario</title>
+    {% load static %}
+    <link href="{% static 'css/tailwind.css' %}" rel="stylesheet">
     <style>
-        .table-container {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
+        .table-container { overflow-x: auto; }
+        svg { display: inline-block; vertical-align: middle; }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 50;
+        }
+        .modal.show {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .bodega-card {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .bodega-card.selected {
+            background-color: #e0e7ff;
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen font-sans">
-    <div class="container mx-auto px-4 py-6">
-        <!-- Encabezado -->
-        <div class="flex flex-col sm:flex-row justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold text-gray-800">Bienvenido, Administrador</h2>
-            <a href="{% url 'logout' %}" class="mt-4 sm:mt-0 bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition">Cerrar Sesión</a>
-        </div>
-
-        <!-- Sección de Ciclo -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h3 class="text-xl font-semibold text-gray-700 mb-4">Gestionar Ciclo de Conteo</h3>
-            <form method="post" action="" class="mb-4">
-                {% csrf_token %}
-                <button type="submit" class="bg-[rgb(34,197,94)] text-white px-4 py-2 rounded-md hover:bg-[rgb(16,185,129)] transition">
-                    Iniciar Nuevo Ciclo
-                  </button>
-                  
-            </form>
-            {% if ciclo_actual %}
-                <p class="text-gray-600">Ciclo Actual: {{ ciclo_actual.nombre }} (Estado: {{ ciclo_actual.estado }})</p>
-            {% else %}
-                <p class="text-gray-600">No hay ciclo activo</p>
-            {% endif %}
-        </div>
-
-        <!-- Sección de Asignaciones -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h3 class="text-xl font-semibold text-gray-700 mb-4">Gestionar Asignaciones</h3>
-            <a href="" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition mb-4 inline-block">Crear Nueva Asignación</a>
-            <div class="table-container">
-                <table class="w-full text-left border-collapse">
-                    <thead class="bg-gray-800 text-white">
-                        <tr>
-                            <th class="p-3 text-sm font-medium">Estante</th>
-                            <th class="p-3 text-sm font-medium">Empleado</th>
-                            <th class="p-3 text-sm font-medium">Ciclo</th>
-                            <th class="p-3 text-sm font-medium">Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white">
-                        {% for asignacion in asignaciones %}
-                        <tr class="border-b hover:bg-gray-50">
-                            <td class="p-3 text-sm text-gray-700">{{ asignacion.id_estante.nombre }}</td>
-                            <td class="p-3 text-sm text-gray-700">{{ asignacion.id_empleado }}</td>
-                            <td class="p-3 text-sm text-gray-700">{{ asignacion.id_ciclo.nombre }}</td>
-                            <td class="p-3 text-sm text-gray-700">{{ asignacion.estado }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="4" class="p-3 text-center text-gray-600">No hay asignaciones</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+<body class="min-h-screen bg-gray-50">
+    <!-- Header (sin cambios) -->
+    <header class="bg-indigo-600 text-white p-4 shadow-lg">
+        <div class="container mx-auto">
+            <div class="flex items-center">
+                <svg class="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01m-.01 4h.01"/>
+                </svg>
+                <h1 class="text-2xl font-bold">Control de Inventario</h1>
             </div>
         </div>
+    </header>
 
-        <!-- Sección de Consolidado por Bodega -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h3 class="text-xl font-semibold text-gray-700 mb-4">Consolidado e Inconsistencias</h3>
-            <select id="bodegaSelect" onchange="cargarConsolidado(this.value)" class="w-full sm:w-64 p-2 mb-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">Seleccionar Bodega</option>
+    <!-- Main Content -->
+    <main class="container mx-auto p-6">
+        <!-- Tomas Físicas Activas (sin cambios significativos) -->
+        <section class="mb-8">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold flex items-center">
+                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/>
+                    </svg>
+                    Tomas Físicas Activas
+                </h2>
+                <button id="openModalBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Nueva Toma Física
+                </button>
+            </div>
+            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3" id="bodegasContainer">
                 {% for bodega in bodegas %}
-                <option value="{{ bodega.id_bodega }}">{{ bodega.nombre }}</option>
+                <div class="bodega-card bg-white rounded-lg shadow-md p-4 {% if forloop.first %}selected{% endif %}" data-bodega-id="{{ bodega.id_bodega }}">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <h3 class="font-semibold text-lg">{{ bodega.nombre }}</h3>
+                            <p class="text-sm text-gray-600">Inicio: 15/03/2024</p>
+                        </div>
+                        <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm">Activa</span>
+                    </div>
+                </div>
                 {% endfor %}
-            </select>
+            </div>
+        </section>
 
-            {% if ciclo_actual and ciclo_actual.estado == 'conteo_finalizado' %}
-            <form method="post" action="" class="mb-4">
-                {% csrf_token %}
-                <button type="submit" class="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 transition">Iniciar Reconteo</button>
-            </form>
-            {% endif %}
+        <!-- Lista de Estanterías -->
+        <section>
+            <h2 class="text-xl font-semibold mb-4">Estado de Estanterías</h2>
+            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="table-container">
+                    <table class="w-full" id="shelvesTable">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empleados Asignados</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Productos Contados</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Última Actualización</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="shelvesBody">
+                            <!-- Las estanterías se cargarán dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
 
-            <div class="table-container">
-                <table class="w-full text-left border-collapse" id="consolidadoTable">
-                    <thead class="bg-gray-800 text-white">
-                        <tr>
-                            <th class="p-3 text-sm font-medium">Producto</th>
-                            <th class="p-3 text-sm font-medium">Cantidad Confirmada (Conteo)</th>
-                            <th class="p-3 text-sm font-medium">Diferencia (Conteo)</th>
-                            {% if ciclo_actual and ciclo_actual.estado == 'en_reconteo' or ciclo_actual.estado == 'reconteo_finalizado' %}
-                            <th class="p-3 text-sm font-medium">Cantidad Confirmada (Reconteo)</th>
-                            <th class="p-3 text-sm font-medium">Diferencia (Reconteo)</th>
-                            {% endif %}
-                            <th class="p-3 text-sm font-medium">Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody id="consolidadoBody" class="bg-white">
-                        <!-- Contenido dinámico cargado por JS -->
-                    </tbody>
-                </table>
+        <!-- Modal para Nueva Toma Física (sin cambios) -->
+        <div id="modal" class="modal">
+            <!-- ... contenido del modal anterior ... -->
+        </div>
+
+        <!-- Modal para Asignar Empleados -->
+        <div id="assignEmployeesModal" class="modal">
+            <div class="bg-white rounded-lg p-6 w-full max-w-md shadow-lg">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold">Asignar Empleados</h3>
+                    <button id="closeAssignModalBtn" class="text-gray-500 hover:text-gray-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <form id="assignEmployeesForm">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Seleccionar Empleados</label>
+                        <div class="space-y-2 max-h-60 overflow-y-auto" id="employeesList">
+                            <!-- Los empleados se cargarán dinámicamente -->
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" id="cancelAssignBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                            Asignar
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
-    </div>
+    </main>
 
+    <!-- JavaScript -->
     <script>
-        function cargarConsolidado(bodegaId) {
-            const tbody = document.getElementById('consolidadoBody');
-            if (!bodegaId) {
-                tbody.innerHTML = '<tr><td colspan="6" class="p-3 text-center text-gray-600">Seleccione una bodega</td></tr>';
-                return;
+
+        // Manejo de clic en bodegas
+        const bodegaCards = document.querySelectorAll('.bodega-card');
+        const shelvesBody = document.getElementById('shelvesBody');
+        let bodegaId;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const firstBodega = document.querySelector('.bodega-card.selected');
+            if (firstBodega) {
+                bodegaId = firstBodega.getAttribute('data-bodega-id');
+                loadShelves(firstBodega.getAttribute('data-bodega-id'));
+            }
+        });
+
+        bodegaCards.forEach(card => {
+            card.addEventListener('click', () => {
+                bodegaCards.forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                bodegaId = card.getAttribute('data-bodega-id');
+                loadShelves(bodegaId);
+            });
+        });
+
+        async function loadShelves(bodegaId) {
+            try {
+                const response = await fetch(`/inventario/estantes_bodegas?bodega_id=${bodegaId}`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (!response.ok) throw new Error('Error al cargar las estanterías');
+                const shelves = await response.json();
+                renderShelves(shelves.estanterias);
+            } catch (error) {
+                console.error('Error:', error);
+                shelvesBody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">Error al cargar las estanterías</td></tr>';
+            }
+        }
+
+        function renderShelves(shelves) {
+            shelvesBody.innerHTML = '';
+            shelves.forEach(shelf => {
+                const statusIcon = {
+                    'empty': `<svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+                    'assigned': `<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>`,
+                    'completed': `<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`
+                };
+                const statusText = {
+                    'empty': 'Sin Asignar',
+                    'assigned': 'En Proceso',
+                    'completed': 'Completada'
+                };
+                const statusColor = {
+                    'empty': 'bg-gray-100 text-gray-700',
+                    'assigned': 'bg-blue-100 text-blue-700',
+                    'completed': 'bg-green-100 text-green-700'
+                };
+
+                const row = `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="font-medium text-gray-900">${shelf.code}</div>
+                            <div class="text-sm text-gray-500">${shelf.warehouse}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                ${statusIcon[shelf.status]}
+                                <span class="ml-2 px-3 py-1 rounded-full text-sm ${statusColor[shelf.status]}">${statusText[shelf.status]}</span>
+                                <button class="ml-2 text-indigo-600 hover:text-indigo-900 assign-employees-btn" data-shelf-id="${shelf.id}">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900" id="employees-${shelf.id}">${shelf.assignedEmployees ? shelf.assignedEmployees.join(', ') : '-'}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${shelf.productCount || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${shelf.lastUpdate || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button class="text-indigo-600 hover:text-indigo-900 flex items-center">
+                                Ver Detalles
+                                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                shelvesBody.insertAdjacentHTML('beforeend', row);
+            });
+
+            // Asignar eventos a los botones de asignar empleados
+            const assignButtons = document.querySelectorAll('.assign-employees-btn');
+            assignButtons.forEach(button => {
+                button.addEventListener('click', async () => {
+                    currentShelfId = button.getAttribute('data-shelf-id');
+                    assignModal.classList.add('show');
+                    await loadEmployees(currentShelfId);
+                });
+            });
+        }
+
+        // Control del modal de Asignar Empleados
+        const assignModal = document.getElementById('assignEmployeesModal');
+        const closeAssignModalBtn = document.getElementById('closeAssignModalBtn');
+        const cancelAssignBtn = document.getElementById('cancelAssignBtn');
+        const assignForm = document.getElementById('assignEmployeesForm');
+        const employeesList = document.getElementById('employeesList');
+        let currentShelfId;
+
+        async function loadEmployees(shelfId) {
+            try {
+                // Reemplaza '/api/employees/' con tu endpoint real
+                const response = await fetch('/inventario/empleados', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (!response.ok) throw new Error('Error al cargar los empleados');
+                const employees = await response.json();
+                renderEmployees(employees.empleados, shelfId);
+            } catch (error) {
+                console.error('Error:', error);
+                employeesList.innerHTML = '<p class="text-red-500">Error al cargar los empleados</p>';
+            }
+        }
+
+        function renderEmployees(employees, shelfId) {
+            employeesList.innerHTML = '';
+            const currentEmployees = document.getElementById(`employees-${shelfId}`).textContent.split(', ');
+            employees.forEach((employee, index) => {
+                const isChecked = currentEmployees.includes(employee.name) && employee.name !== '-' ? 'checked' : '';
+                const checkbox = `
+                    <div>
+                        <input type="checkbox" id="emp${index}" name="employees" value="${employee.id}" class="mr-2" ${isChecked}>
+                        <label for="emp${index}">${employee.name}</label>
+                    </div>
+                `;
+                employeesList.insertAdjacentHTML('beforeend', checkbox);
+            });
+        }
+
+        function closeAssignModal() {
+            assignModal.classList.remove('show');
+            assignForm.reset();
+        }
+
+        closeAssignModalBtn.addEventListener('click', closeAssignModal);
+        cancelAssignBtn.addEventListener('click', closeAssignModal);
+        assignModal.addEventListener('click', (e) => { if (e.target === assignModal) closeAssignModal(); });
+
+        assignForm.addEventListener('submit', async(e) => {
+            e.preventDefault();
+            const selectedEmployees = Array.from(assignForm.querySelectorAll('input[name="employees"]:checked'))
+                .map(input => input.value);
+            const employeesCell = document.getElementById(`employees-${currentShelfId}`);
+            
+            try {
+                const csrftoken = getCookie('csrftoken'); // Obtener el token CSRF
+                const response = await fetch(`/inventario/asignar_empleado`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'X-CSRFToken': csrftoken 
+                    },
+                    body: JSON.stringify({ employeesId: selectedEmployees, currentShelfId, bodegaId })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || 'Error al asignar empleados');
+                // Actualizar la celda con los nombres devueltos por el backend
+                
+                const assignedNames = data.empleados_asignados.map(emp => emp.name);
+                employeesCell.textContent = assignedNames.length > 0 ? assignedNames.join(', ') : '-';
+                
+            } catch (error) {
+                alert(error.message);
             }
 
-            fetch(`/api/consolidado/${bodegaId}/`)
-                .then(response => response.json())
-                .then(data => {
-                    tbody.innerHTML = '';
-                    if (data.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="6" class="p-3 text-center text-gray-600">No hay datos para esta bodega</td></tr>';
-                    } else {
-                        data.forEach(item => {
-                            let row = `<tr class="border-b hover:bg-gray-50">
-                                <td class="p-3 text-sm text-gray-700">${item.producto}</td>
-                                <td class="p-3 text-sm text-gray-700">${item.cantidad_conteo}</td>
-                                <td class="p-3 text-sm text-gray-700">${item.diferencia_conteo}</td>`;
-                            if (item.cantidad_reconteo !== undefined) {
-                                row += `<td class="p-3 text-sm text-gray-700">${item.cantidad_reconteo}</td>
-                                        <td class="p-3 text-sm text-gray-700">${item.diferencia_reconteo}</td>`;
-                            }
-                            row += `<td class="p-3 text-sm text-gray-700">${item.estado}</td></tr>`;
-                            tbody.innerHTML += row;
-                        });
+            closeAssignModal();
+        });
+
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.startsWith(name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
                     }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    tbody.innerHTML = '<tr><td colspan="6" class="p-3 text-center text-gray-600">Error al cargar datos</td></tr>';
-                });
+                }
+            }
+            return cookieValue;
         }
     </script>
 </body>
